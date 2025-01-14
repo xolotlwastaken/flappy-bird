@@ -1,10 +1,12 @@
-# filepath: /C:/Users/xolot/Desktop/SMU/ACCAD/assessments/ACCAD6/flappy-bird/app.py
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
-import boto3
-from botocore.exceptions import ClientError
+from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 import os
+import boto3
+from botocore.exceptions import ClientError
+import secrets
+import logging
 
 load_dotenv()
 
@@ -13,10 +15,17 @@ app.secret_key = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 db = SQLAlchemy(app)
 
-# AWS Cognito configuration
-cognito_client = boto3.client('cognito-idp', region_name=os.getenv('AWS_REGION'))
-USER_POOL_ID = os.getenv('USER_POOL_ID')
-APP_CLIENT_ID = os.getenv('APP_CLIENT_ID')
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+oauth = OAuth(app)
+oauth.register(
+    name='oidc',
+    client_id=os.getenv('APP_CLIENT_ID'),
+    client_secret=os.getenv('APP_CLIENT_SECRET'),
+    server_metadata_url=f"https://cognito-idp.{os.getenv('AWS_REGION')}.amazonaws.com/{os.getenv('USER_POOL_ID')}/.well-known/openid-configuration",
+    client_kwargs={'scope': 'email openid phone'}
+)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -27,7 +36,41 @@ class User(db.Model):
 
 @app.route("/")
 def index():
+    if 'username' not in session:
+        return redirect(url_for('login'))
     return render_template("index.html")
+
+@app.route("/login")
+def login():
+    nonce = secrets.token_urlsafe()
+    session['nonce'] = nonce
+    redirect_uri = url_for('auth', _external=True)
+    return oauth.oidc.authorize_redirect(redirect_uri, nonce=nonce)
+
+@app.route("/auth")
+def auth():
+    token = oauth.oidc.authorize_access_token()
+    nonce = session.pop('nonce', None)
+    user_info = oauth.oidc.parse_id_token(token, nonce=nonce)
+    session['username'] = user_info['email']
+    
+    # Check if the user exists in the local database
+    user = User.query.filter_by(email=user_info['email']).first()
+    if not user:
+        # Create a new user in the local database
+        new_user = User(username=user_info['email'], email=user_info['email'], password='')  # Password can be empty or set to a default value
+        db.session.add(new_user)
+        db.session.commit()
+        logging.debug(f"User {user_info['email']} added to the local database.")
+    
+    return redirect(url_for('index'))
+
+@app.route("/logout")
+def logout():
+    session.pop('username', None)
+    return redirect(url_for("index"))
+
+cognito_client = boto3.client('cognito-idp', region_name=os.getenv('AWS_REGION'))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -37,45 +80,19 @@ def register():
         password = request.form["password"]
         try:
             response = cognito_client.sign_up(
-                ClientId=APP_CLIENT_ID,
+                ClientId=os.getenv('APP_CLIENT_ID'),
                 Username=username,
                 Password=password,
                 UserAttributes=[
                     {'Name': 'email', 'Value': email},
                 ],
             )
-            new_user = User(username=username, email=email, password=password)
-            db.session.add(new_user)
-            db.session.commit()
+            logging.debug(f"User {username} registered successfully with Cognito.")
             return redirect(url_for("login"))
         except ClientError as e:
+            logging.error(f"Error registering user: {e}")
             return str(e)
     return render_template("register.html")
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        try:
-            response = cognito_client.initiate_auth(
-                ClientId=APP_CLIENT_ID,
-                AuthFlow='USER_PASSWORD_AUTH',
-                AuthParameters={
-                    'USERNAME': username,
-                    'PASSWORD': password,
-                },
-            )
-            session['username'] = username
-            return redirect(url_for("index"))
-        except ClientError as e:
-            return str(e)
-    return render_template("login.html")
-
-@app.route("/logout")
-def logout():
-    session.pop('username', None)
-    return redirect(url_for("index"))
 
 @app.route("/save_score", methods=["POST"])
 def save_score():
@@ -88,9 +105,11 @@ def save_score():
         if score > user.highest_score:
             user.highest_score = score
             db.session.commit()
+            logging.debug(f"User {user.username}'s score updated to {score}.")
         return {"message": "Score saved successfully"}
     return {"error": "User not found"}, 404
 
 if __name__ == "__main__":
-    db.create_all()
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True, host='localhost')
