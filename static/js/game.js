@@ -50,6 +50,26 @@ function moveUp() {
   fly.play();
 }
 
+
+// To save the user's highest score
+function saveHighestScore(score) {
+  fetch('/save_score', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ score: score }),
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Success:', data);
+  })
+  .catch((error) => {
+    console.error('Error:', error);
+  });
+}
+
+
 // Game loop
 function draw() {
   context.drawImage(bg, 0, 0);
@@ -95,6 +115,7 @@ function draw() {
       bY <= 0
     ) {
       alert("Game Over! Score: " + score);
+      saveHighestScore(score);
       location.reload();
       return;
     }
