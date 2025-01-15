@@ -49,7 +49,7 @@ oauth.register(
     client_id=secrets_all['APP_CLIENT_ID'],
     client_secret=secrets_all['APP_CLIENT_SECRET'],
     server_metadata_url=f"https://cognito-idp.{secrets_all['AWS_REGION']}.amazonaws.com/{secrets_all['USER_POOL_ID']}/.well-known/openid-configuration",
-    client_kwargs={'scope': 'email openid phone profile'}
+    client_kwargs={'scope': 'email openid phone'}
 )
 
 class Users(db.Model):
