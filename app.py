@@ -70,6 +70,8 @@ def login():
     nonce = secrets.token_urlsafe()
     session['nonce'] = nonce
     redirect_uri = url_for('auth', _external=True)
+    print("################################################" + redirect_uri)
+    redirect_uri = "https://p3pusciccd.ap-southeast-1.awsapprunner.com/auth"
     return oauth.oidc.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route("/auth")
