@@ -69,6 +69,39 @@ function saveHighestScore(score) {
   });
 }
 
+// Function to fetch and display the leaderboard
+function showLeaderboard() {
+    fetch('/api/leaderboard')
+        .then(response => response.json())
+        .then(data => {
+            const leaderboardTable = document.getElementById('leaderboardTable').getElementsByTagName('tbody')[0];
+            leaderboardTable.innerHTML = ''; // Clear existing rows
+            data.leaderboard.forEach(user => {
+                const row = leaderboardTable.insertRow();
+                const usernameCell = row.insertCell(0);
+                const scoreCell = row.insertCell(1);
+                usernameCell.textContent = user.username;
+                scoreCell.textContent = user.highest_score;
+            });
+            document.getElementById('leaderboardModal').style.display = 'block';
+        })
+        .catch(error => console.error('Error fetching leaderboard:', error));
+}
+
+// Function to close the leaderboard modal
+function closeLeaderboard() {
+    document.getElementById('leaderboardModal').style.display = 'none';
+}
+
+// Game loop and other game logic...
+
+// Example function to handle game over
+function gameOver() {
+    alert("Game Over! Score: " + score);
+    saveHighestScore(score);
+    showLeaderboard();
+    location.reload();
+}
 
 // Game loop
 function draw() {
@@ -114,9 +147,7 @@ function draw() {
       bY + bird.height >= canvas.height - fg.height ||
       bY <= 0
     ) {
-      alert("Game Over! Score: " + score);
-      saveHighestScore(score);
-      location.reload();
+      gameOver();
       return;
     }
 

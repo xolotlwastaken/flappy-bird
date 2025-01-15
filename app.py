@@ -109,6 +109,12 @@ def save_score():
         return {"message": "Score saved successfully"}
     return {"error": "User not found"}, 404
 
+@app.route("/leaderboard")
+def leaderboard():
+    # Query the top users by highest score
+    top_users = User.query.order_by(User.highest_score.desc()).limit(10).all()
+    return render_template("leaderboard.html", users=top_users)
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
