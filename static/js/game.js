@@ -50,7 +50,6 @@ function moveUp() {
   fly.play();
 }
 
-
 // To save the user's highest score
 function saveHighestScore(score) {
   fetch('/save_score', {
