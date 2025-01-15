@@ -1,39 +1,19 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+import os
 import boto3
 from botocore.exceptions import ClientError
-import os
-import json
-import secrets
+import secrets  # Import the secrets module from the standard library
 import logging
 
-def get_secret():
-    secret_name = "flappybird"
-    region_name = "ap-southeast-1"
-
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
-    try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        raise e
-
-    secret = get_secret_value_response['SecretString']
-    return json.loads(secret)
-
-secrets = get_secret()
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = secrets['SECRET_KEY']
-app.config['SQLALCHEMY_DATABASE_URI'] = secrets['SQLALCHEMY_DATABASE_URI']
+app.secret_key = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 db = SQLAlchemy(app)
 
 # Configure logging
@@ -42,9 +22,9 @@ logging.basicConfig(level=logging.DEBUG)
 oauth = OAuth(app)
 oauth.register(
     name='oidc',
-    client_id=secrets['APP_CLIENT_ID'],
-    client_secret=secrets['APP_CLIENT_SECRET'],
-    server_metadata_url=f"https://cognito-idp.{secrets['AWS_REGION']}.amazonaws.com/{secrets['USER_POOL_ID']}/.well-known/openid-configuration",
+    client_id=os.getenv('APP_CLIENT_ID'),
+    client_secret=os.getenv('APP_CLIENT_SECRET'),
+    server_metadata_url=f"https://cognito-idp.{os.getenv('AWS_REGION')}.amazonaws.com/{os.getenv('USER_POOL_ID')}/.well-known/openid-configuration",
     client_kwargs={'scope': 'email openid phone profile'}
 )
 
@@ -91,7 +71,7 @@ def logout():
     session.pop('username', None)
     return redirect(url_for("index"))
 
-cognito_client = boto3.client('cognito-idp', region_name=secrets['AWS_REGION'])
+cognito_client = boto3.client('cognito-idp', region_name=os.getenv('AWS_REGION'))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -101,7 +81,7 @@ def register():
         password = request.form["password"]
         try:
             response = cognito_client.sign_up(
-                ClientId=secrets['APP_CLIENT_ID'],
+                ClientId=os.getenv('APP_CLIENT_ID'),
                 Username=username,
                 Password=password,
                 UserAttributes=[
