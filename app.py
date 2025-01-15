@@ -5,15 +5,39 @@ from dotenv import load_dotenv
 import os
 import boto3
 from botocore.exceptions import ClientError
-import secrets  # Import the secrets module from the standard library
+import secrets
 import logging
+import json
 
 # Load environment variables from .env file
 load_dotenv()
 
+def get_secret():
+    secret_name = "flappybird-secrets"
+    region_name = "ap-southeast-1"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        raise e
+
+    secret = get_secret_value_response['SecretString']
+    return json.loads(secret)
+
+secrets_all = get_secret()
+
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+app.secret_key = secrets_all['SECRET_KEY']
+app.config['SQLALCHEMY_DATABASE_URI'] = secrets_all['SQLALCHEMY_DATABASE_URI']
 db = SQLAlchemy(app)
 
 # Configure logging
@@ -22,10 +46,10 @@ logging.basicConfig(level=logging.DEBUG)
 oauth = OAuth(app)
 oauth.register(
     name='oidc',
-    client_id=os.getenv('APP_CLIENT_ID'),
-    client_secret=os.getenv('APP_CLIENT_SECRET'),
-    server_metadata_url=f"https://cognito-idp.{os.getenv('AWS_REGION')}.amazonaws.com/{os.getenv('USER_POOL_ID')}/.well-known/openid-configuration",
-    client_kwargs={'scope': 'email openid phone profile'}
+    client_id=secrets_all['APP_CLIENT_ID'],
+    client_secret=secrets_all['APP_CLIENT_SECRET'],
+    server_metadata_url=f"https://cognito-idp.{secrets_all['AWS_REGION']}.amazonaws.com/{secrets_all['USER_POOL_ID']}/.well-known/openid-configuration",
+    client_kwargs={'scope': 'email openid phone'}
 )
 
 class User(db.Model):
@@ -58,11 +82,13 @@ def auth():
     # Check if the user exists in the local database
     user = User.query.filter_by(email=user_info['email']).first()
     if not user:
+        # Use email as username if preferred_username is not available
+        username = user_info.get('preferred_username', user_info['email'])
         # Create a new user in the local database
-        new_user = User(username=user_info['preferred_username'], email=user_info['email'], password='')  # Password can be empty or set to a default value
+        new_user = User(username=username, email=user_info['email'], password='')  # Password can be empty or set to a default value
         db.session.add(new_user)
         db.session.commit()
-        logging.debug(f"User {user_info['preferred_username']} added to the local database.")
+        logging.debug(f"User {username} added to the local database.")
     
     return redirect(url_for('index'))
 
@@ -71,7 +97,7 @@ def logout():
     session.pop('username', None)
     return redirect(url_for("index"))
 
-cognito_client = boto3.client('cognito-idp', region_name=os.getenv('AWS_REGION'))
+cognito_client = boto3.client('cognito-idp', region_name=secrets_all['AWS_REGION'])
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -81,7 +107,7 @@ def register():
         password = request.form["password"]
         try:
             response = cognito_client.sign_up(
-                ClientId=os.getenv('APP_CLIENT_ID'),
+                ClientId=secrets_all['APP_CLIENT_ID'],
                 Username=username,
                 Password=password,
                 UserAttributes=[
