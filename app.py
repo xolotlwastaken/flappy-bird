@@ -24,7 +24,7 @@ oauth.register(
     client_id=os.getenv('APP_CLIENT_ID'),
     client_secret=os.getenv('APP_CLIENT_SECRET'),
     server_metadata_url=f"https://cognito-idp.{os.getenv('AWS_REGION')}.amazonaws.com/{os.getenv('USER_POOL_ID')}/.well-known/openid-configuration",
-    client_kwargs={'scope': 'email openid phone'}
+    client_kwargs={'scope': 'email openid phone profile'}
 )
 
 class User(db.Model):
@@ -58,10 +58,10 @@ def auth():
     user = User.query.filter_by(email=user_info['email']).first()
     if not user:
         # Create a new user in the local database
-        new_user = User(username=user_info['email'], email=user_info['email'], password='')  # Password can be empty or set to a default value
+        new_user = User(username=user_info['preferred_username'], email=user_info['email'], password='')  # Password can be empty or set to a default value
         db.session.add(new_user)
         db.session.commit()
-        logging.debug(f"User {user_info['email']} added to the local database.")
+        logging.debug(f"User {user_info['preferred_username']} added to the local database.")
     
     return redirect(url_for('index'))
 
@@ -88,6 +88,10 @@ def register():
                 ],
             )
             logging.debug(f"User {username} registered successfully with Cognito.")
+            # Save the user in the local database
+            new_user = User(username=username, email=email, password=password)
+            db.session.add(new_user)
+            db.session.commit()
             return redirect(url_for("login"))
         except ClientError as e:
             logging.error(f"Error registering user: {e}")
