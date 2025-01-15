@@ -52,7 +52,7 @@ oauth.register(
     client_kwargs={'scope': 'email openid phone'}
 )
 
-class User(db.Model):
+class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -82,12 +82,12 @@ def auth():
     session['username'] = user_info['email']
     
     # Check if the user exists in the local database
-    user = User.query.filter_by(email=user_info['email']).first()
+    user = Users.query.filter_by(email=user_info['email']).first()
     if not user:
         # Use email as username if preferred_username is not available
         username = user_info.get('preferred_username', user_info['email'])
         # Create a new user in the local database
-        new_user = User(username=username, email=user_info['email'], password='')  # Password can be empty or set to a default value
+        new_user = Users(username=username, email=user_info['email'], password='')  # Password can be empty or set to a default value
         db.session.add(new_user)
         db.session.commit()
         logging.debug(f"User {username} added to the local database.")
@@ -118,7 +118,7 @@ def register():
             )
             logging.debug(f"User {username} registered successfully with Cognito.")
             # Save the user in the local database
-            new_user = User(username=username, email=email, password=password)
+            new_user = Users(username=username, email=email, password=password)
             db.session.add(new_user)
             db.session.commit()
             return redirect(url_for("login"))
@@ -133,7 +133,7 @@ def save_score():
         return {"error": "User not logged in"}, 401
     data = request.get_json()
     score = data.get('score')
-    user = User.query.filter_by(username=session['username']).first()
+    user = Users.query.filter_by(username=session['username']).first()
     if user:
         if score > user.highest_score:
             user.highest_score = score
@@ -145,7 +145,7 @@ def save_score():
 @app.route("/leaderboard")
 def leaderboard():
     # Query the top users by highest score
-    top_users = User.query.order_by(User.highest_score.desc()).limit(10).all()
+    top_users = Users.query.order_by(Users.highest_score.desc()).limit(10).all()
     return render_template("leaderboard.html", users=top_users)
 
 if __name__ == "__main__":

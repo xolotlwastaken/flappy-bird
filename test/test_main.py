@@ -18,7 +18,7 @@ importlib.reload(app_module)
 # Access app and models dynamically
 app = app_module.app
 db = app_module.db
-User = app_module.User
+User = app_module.Users
 
 @pytest.fixture
 def client():
