@@ -1,0 +1,21 @@
+version: 0.1
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/f1x6u7c2
+  build:
+    commands:
+      - echo Building Docker image...
+      - docker build -t capstone-ecr .
+      - docker tag capstone-ecr:latest public.ecr.aws/f1x6u7c2/capstone-ecr:latest
+  post_build:
+    commands:
+      - echo Pushing Docker image to ECR...
+      - docker push public.ecr.aws/f1x6u7c2/capstone-ecr:latest
+
+artifacts:
+  files:
+    - "**/*"
+  discard-paths: yes
