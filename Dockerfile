@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application files
 COPY . .
 
+# Ensure the templates directory is copied
+COPY templates/ templates/
+
 # Expose the port Flask will run on
 EXPOSE 5000
 
