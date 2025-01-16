@@ -167,7 +167,7 @@ def save_score():
 def leaderboard():
     # Query the top users by highest score
     top_users = Users.query.order_by(Users.highest_score.desc()).limit(10).all()
-    return render_template("leaderboard.html", users=top_users, logged_in_user=session['email'])
+    return render_template("leaderboard.html", users=top_users, logged_in_user=session['username'])
 
 if __name__ == "__main__":
     with app.app_context():

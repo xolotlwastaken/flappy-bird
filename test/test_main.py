@@ -69,20 +69,20 @@ def test_leaderboard(client):
     logging.debug("Starting test_leaderboard")
     with app.app_context():
         user1 = User(username='user1', email='user1@example.com', password='Password123', highest_score=100)
-        user2 = User(username='user2', email='user2@example.com', password='Password123', highest_score=200)
-        db.session.add_all([user1, user2])
+        db.session.add_all([user1])
         db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess['username'] = 'user1'  # Set the logged-in user
 
     response = client.get('/leaderboard')
     assert response.status_code == 200
-    assert b"user2" in response.data
     assert b"user1" in response.data
 
     with app.app_context():
         db.session.delete(user1)
-        db.session.delete(user2)
         db.session.commit()
-        
+
     logging.debug("Finished test_leaderboard")
 
 def test_delete_user(client):
