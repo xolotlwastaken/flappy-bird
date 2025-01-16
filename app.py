@@ -134,20 +134,18 @@ def register():
             return str(e)
     return render_template("register.html")
 
-# To delete the user high score
-@app.route("/delete_user", methods=["POST"])
-def delete_user():
+# To reset the user high score
+@app.route("/reset_score", methods=["POST"])
+def reset_score():
     if 'username' not in session:
         return {"error": "User not logged in"}, 401
     user = Users.query.filter_by(username=session['username']).first()
     if user:
-        db.session.delete(user)
+        user.highest_score = 0
         db.session.commit()
-        logging.debug(f"User {user.username} deleted.")
-        session.pop('username', None)
-        return redirect(url_for("/leaderboard"))
-        return {"message": "User deleted successfully"}
-    return {"error": "User not found"}, 40
+        logging.debug(f"User {user.username}'s score reset to 0.")
+        return redirect(url_for("leaderboard"))
+    return {"error": "User not found"}, 404
 
 # To save and update the user high score
 @app.route("/save_score", methods=["POST"])
@@ -169,7 +167,7 @@ def save_score():
 def leaderboard():
     # Query the top users by highest score
     top_users = Users.query.order_by(Users.highest_score.desc()).limit(10).all()
-    return render_template("leaderboard.html", users=top_users)
+    return render_template("leaderboard.html", users=top_users, logged_in_user=session['username'])
 
 if __name__ == "__main__":
     with app.app_context():
