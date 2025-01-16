@@ -44,6 +44,7 @@ pipes[0] = {
 
 // Key press event
 document.addEventListener("keydown", moveUp);
+document.addEventListener("touchstart", moveUp);
 
 function moveUp() {
   velocity = lift; // Apply upward force
