@@ -95,7 +95,7 @@ def auth():
         new_user = Users(username=username, email=user_info['email'], password='')  # Password can be empty or set to a default value
         db.session.add(new_user)
         db.session.commit()
-        logging.debug(f"User {username} added to the local database.")
+        logging.debug(f"User {username} added to database.")
     
     return redirect(url_for('index'))
 

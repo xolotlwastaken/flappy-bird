@@ -28,9 +28,6 @@ def client():
         with app.app_context():
             db.create_all()
         yield client
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
 
 def test_index(client):
     logging.debug("Starting test_index")
@@ -62,6 +59,10 @@ def test_save_score(client):
     with app.app_context():
         user = User.query.filter_by(username='testuser').first()
         assert user.highest_score == 50
+
+        db.session.delete(user)
+        db.session.commit()
+
     logging.debug("Finished test_save_score")
 
 def test_leaderboard(client):
@@ -76,6 +77,12 @@ def test_leaderboard(client):
     assert response.status_code == 200
     assert b"user2" in response.data
     assert b"user1" in response.data
+
+    with app.app_context():
+        db.session.delete(user1)
+        db.session.delete(user2)
+        db.session.commit()
+        
     logging.debug("Finished test_leaderboard")
 
 def test_delete_user(client):
