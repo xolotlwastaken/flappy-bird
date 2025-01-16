@@ -52,6 +52,8 @@ oauth.register(
     client_kwargs={'scope': 'email openid phone'}
 )
 
+
+# Define the Users model to be stored in the database
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -59,12 +61,15 @@ class Users(db.Model):
     password = db.Column(db.String(120), nullable=False)
     highest_score = db.Column(db.Integer, default=0)
 
+
+# To display the home page
 @app.route("/")
 def index():
     if 'username' not in session:
         return redirect(url_for('login'))
     return render_template("index.html")
 
+# To login the user using Cognito
 @app.route("/login")
 def login():
     nonce = secrets.token_urlsafe()
@@ -72,6 +77,8 @@ def login():
     redirect_uri = "https://p3pusciccd.ap-southeast-1.awsapprunner.com/auth"
     return oauth.oidc.authorize_redirect(redirect_uri, nonce=nonce)
 
+
+# To authenticate the user
 @app.route("/auth")
 def auth():
     token = oauth.oidc.authorize_access_token()
@@ -92,12 +99,14 @@ def auth():
     
     return redirect(url_for('index'))
 
+
 @app.route("/logout")
 def logout():
     session.pop('username', None)
     return redirect(url_for("index"))
 
 cognito_client = boto3.client('cognito-idp', region_name=secrets_all['AWS_REGION'])
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -125,6 +134,20 @@ def register():
             return str(e)
     return render_template("register.html")
 
+# To delete the user high score
+@app.route("/delete_user", methods=["POST"])
+def delete_user():
+    if 'username' not in session:
+        return {"error": "User not logged in"}, 401
+    user = Users.query.filter_by(username=session['username']).first()
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        logging.debug(f"User {user.username} deleted.")
+        return {"message": "User deleted successfully"}
+    return {"error": "User not found"}, 404
+
+# To save and update the user high score
 @app.route("/save_score", methods=["POST"])
 def save_score():
     if 'username' not in session:
