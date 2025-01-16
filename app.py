@@ -145,7 +145,7 @@ def delete_user():
         db.session.commit()
         logging.debug(f"User {user.username} deleted.")
         session.pop('username', None)
-        return redirect(url_for("auth"))
+        return redirect(url_for("/leaderboard"))
         return {"message": "User deleted successfully"}
     return {"error": "User not found"}, 40
 
